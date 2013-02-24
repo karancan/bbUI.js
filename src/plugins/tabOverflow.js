@@ -13,9 +13,22 @@ bb.tabOverflow = {
 			style : undefined,
 			caption : undefined
 		};
-		menu.res = (bb.device.isPlayBook) ? 'lowres' : 'hires';
-		menu.setAttribute('class','bb-bb10-tab-overflow-menu bb-bb10-tab-overflow-menu-'+bb.actionBar.color);
+		
+		if (bb.device.is1024x600) {
+			menu.res = '1024x600';
+		} else if (bb.device.is1280x768 || bb.device.is1280x720) {
+			menu.res = '1280x768-1280x720';
+		} else {
+			menu.res = '1280x768-1280x720';
+		}
+		
+		menu.setAttribute('class','bb-bb10-tab-overflow-menu bb-bb10-tab-overflow-menu-dark');
 		screen.parentNode.appendChild(menu);
+		
+		// Set our initial styling
+		menu.style['z-index'] = '-100';
+		menu.style.display = 'none';
+		menu.style.width = menu.width + 'px';
 		
 		if (!bb.screen.tabOverlay) {
 			overlay = document.createElement('div');
@@ -25,13 +38,29 @@ bb.tabOverflow = {
 			screen.appendChild(overlay);
 			
 			// Hide the menu on touch
-			overlay.ontouchstart = function() {
+			overlay.ontouchstart = function(e) {
+						e.preventDefault();
+						e.stopPropagation();
 						this.menu.hide();
 					};
-			
 		}
 		menu.overlay = bb.screen.tabOverlay;
-		
+
+		// Apply styling at the begining and end of animation
+		menu.doEndTransition = function() {
+			if (this.visible) {
+				this.style['z-index'] = '';
+			} else {
+				this.style.display = 'none';
+				this.style.width = '0px';
+				this.screen.removeEventListener('webkitTransitionEnd',menu.doEndTransition);
+				this.screen.style['-webkit-transition'] = '';
+				this.screen.style['-webkit-transform'] = '';
+				this.screen.style['-webkit-backface-visibility'] = '';
+			}
+		};
+		menu.doEndTransition = menu.doEndTransition.bind(menu);	
+			
 		menu.show = function() {
 					this.itemClicked = false;
 					this.visible = true;
@@ -40,6 +69,7 @@ bb.tabOverflow = {
 					this.tabOverflowState.img = tabOverflowBtn.icon.src;
 					this.tabOverflowState.caption = tabOverflowBtn.display.innerHTML;
 					this.tabOverflowState.style = tabOverflowBtn.icon.getAttribute('class');
+					this.screen.addEventListener('webkitTransitionEnd',menu.doEndTransition);
 					this.setDimensions();					
 					// Reset our overflow menu button
 					tabOverflowBtn.reset();
@@ -48,7 +78,8 @@ bb.tabOverflow = {
 		
 		// Adjust the dimensions of the menu and screen
 		menu.setDimensions = function() {
-					var width = (bb.device.isPlayBook) ? bb.innerWidth() - 77 : bb.innerWidth() - 154;
+					this.style.display = '';
+					this.style.width = bb.tabOverflow.getWidth() + 'px';
 					// Set our screen's parent to have no overflow so the browser doesn't think it needs to scroll
 					this.screen.parentNode.style.position = 'absolute';
 					this.screen.parentNode.style.left = '0px';
@@ -59,24 +90,19 @@ bb.tabOverflow = {
 					this.screen.parentNode.style['overflow'] = 'hidden';
 					// Make our overlay visible
 					this.overlay.style.display = 'block';
-					// Show our menu
-					this.style.width = width + 'px';
-					this.style['-webkit-transition'] = 'all 0.2s ease-out';
-					this.style['-webkit-backface-visibility'] = 'hidden';
+					
 					// Slide our screen
-					this.screen.style.left = width + 'px';
-					this.screen.style.right = '-' + width +'px';
-					this.screen.style['-webkit-transition'] = 'all 0.2s ease-out';
+					this.screen.style['-webkit-transition'] = '0.2s ease-out';
+					this.screen.style['-webkit-transform'] = 'translate3d(' + bb.tabOverflow.getWidth() + 'px,0px,0px)';
 					this.screen.style['-webkit-backface-visibility'] = 'hidden';
 				};
 		menu.setDimensions = menu.setDimensions.bind(menu);	
 		
 		menu.hide = function() {
 					this.visible = false;
-					// Set our sizes
-					this.style.width = '0px';
-					this.screen.style.left = '0px';
-					this.screen.style.right = '0px';
+					this.style['z-index'] = '-100';
+					this.screen.style['-webkit-transform'] = 'translate3d(0px,0px,0px)';
+					
 					// Make our overlay invisible
 					this.overlay.style.display = 'none';
 					
@@ -99,9 +125,17 @@ bb.tabOverflow = {
 		// Center the items in the list
 		menu.centerMenuItems = function() {
 								var windowHeight = bb.innerHeight(),
-									itemHeight = (bb.device.isPlayBook) ? 53 : 111,
+									itemHeight = 111,
 									margin;
+									
+								if (bb.device.is1024x600) {
+									itemHeight = 53;
+								} else if (bb.device.is1280x768 || bb.device.is1280x720) {
+									itemHeight = 111;
+								} 
+								
 								margin = windowHeight - Math.floor(windowHeight/2) - Math.floor((this.actions.length * itemHeight)/2) - itemHeight; //itemHeight is the header
+								if (margin < 0) margin = 0;
 								this.actions[0].style['margin-top'] = margin + 'px';
 							};
 		menu.centerMenuItems = menu.centerMenuItems.bind(menu);
@@ -130,6 +164,8 @@ bb.tabOverflow = {
 							};
 		menu.orientationChanged = menu.orientationChanged.bind(menu);	
 		window.addEventListener('orientationchange', menu.orientationChanged,false); 
+		// Add listener for removal on popScreen
+		bb.windowListeners.push({name: 'orientationchange', eventHandler: menu.orientationChanged});
 		
 		// Create our add item function
 		menu.add = function(action) {
@@ -142,12 +178,20 @@ bb.tabOverflow = {
 					table, tr, td;
 				
 				// set our styling
-				normal = 'bb-bb10-tab-overflow-menu-item-'+this.res+' bb-bb10-tab-overflow-menu-item-'+this.res+'-' + bb.actionBar.color;
+				normal = 'bb-bb10-tab-overflow-menu-item-'+this.res+' bb-bb10-tab-overflow-menu-item-'+this.res+'-dark';
 				this.appendChild(action);
-				this.actions.push(action);
+				
+				// Check for our visibility
+				if (action.hasAttribute('data-bb-visible') && action.getAttribute('data-bb-visible').toLowerCase() == 'false') {
+					action.visible = false;
+					action.style.display = 'none';
+				} else {
+					action.visible = true;
+					this.actions.push(action);
+				}
 				// If it is the top item it needs a top border
 				if (this.actions.length == 1) {
-					normal = normal + ' bb-bb10-tab-overflow-menu-item-first-' + this.res + '-' + bb.actionBar.color;
+					normal = normal + ' bb-bb10-tab-overflow-menu-item-first-' + this.res + '-dark';
 				}
 				// Set our inner information
 				action.normal = normal;
@@ -233,8 +277,40 @@ bb.tabOverflow = {
 									this.img.setAttribute('src',value);
 								};
 				action.setImage = action.setImage.bind(action);
+				
+				// Assign the show function
+				action.show = function() {
+									if (this.visible) return;
+									this.visible = true;
+									this.menu.actions.push(this);
+									this.style.display = '';
+									this.menu.centerMenuItems();
+								};
+				action.show = action.show.bind(action);
+				
+				// Assign the hide function
+				action.hide = function() {
+									if (!this.visible) return;
+									this.visible = false;
+									var index = this.menu.actions.indexOf(this);
+									this.menu.actions.splice(index,1);
+									this.style.display = 'none';	
+									this.menu.centerMenuItems();
+								};
+				action.hide = action.hide.bind(action);
 		};
 		menu.add = menu.add.bind(menu);
 		return menu;
+	},
+	
+	// Get the preferred width of the overflow
+	getWidth: function() {
+		if (bb.device.is1024x600) {
+			return (bb.getOrientation() == 'portrait') ? bb.innerWidth() - 77 : 400;
+		} else if (bb.device.is1280x768 || bb.device.is1280x720) {
+			return (bb.getOrientation() == 'portrait') ? bb.innerWidth() - 154 : 700;
+		} else {
+			return (bb.getOrientation() == 'portrait') ? bb.innerWidth() - 154 : 700;
+		}
 	}
-},
+};

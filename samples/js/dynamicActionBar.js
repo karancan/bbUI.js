@@ -27,4 +27,23 @@ function setActionImages(img) {
 	document.getElementById('findAction').setImage(img);
 	document.getElementById('actionOverflowAction').setImage(img);
 }
+
+function setTab(tab) {
+	document.getElementById('myActionBar').setSelectedTab(tab);
+}
+
+function toggleActionVisibility(id, buttonId) {
+	var action = document.getElementById(id),
+		button = document.getElementById(buttonId);
+	
+	if (!button.hiding) {
+		action.hide();
+		button.hiding = true;
+		button.setCaption('Show '+buttonId);
+	} else {
+		action.show();
+		button.hiding = false;
+		button.setCaption('Hide '+buttonId);
+	}
+}
   

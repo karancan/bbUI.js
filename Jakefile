@@ -1,5 +1,7 @@
 var DEPLOY = __dirname + "/pkg/",
     _path = require('path'),
+	UglifyJS = require('uglify-js'),
+	cleanCSS = require('clean-css'),
     fs = require('fs');
 
 function include(files, transform) { 
@@ -40,24 +42,56 @@ desc("package everything for a release");
 task('build', ['clean'], function () {
     var output = "",
         css = "",
+		license = "",
+		minified,
+		version,
+		versionText = "",
         plugins = [];
 
-    output += include("JakeLicense");
-    output += include("src/core.js");
+	console.log("Gathering Files...");
+	// Retrieve the version information
+	version = JSON.parse(include("JakeVersion"));
+	version.build++;
+	versionText = '/* VERSION: ' + version.major + '.' + version.minor + '.' + version.revision + '.' + version.build + '*/\n\n';
 
+	pkg = JSON.parse(include("package.json"));
+	pkg.version = version.major + '.' + version.minor + '.' + version.revision;
+	
+	// Retrieve our license information
+	license = include("JakeLicense");
+	license += versionText;
+	
+	// Gather our core JS files
+    output = include("src/core.js");
     collect(__dirname + "/src/plugins", plugins);
-
     plugins.forEach(function (plugin) {
         output += include(plugin);
     });
+	
+	// Write our our JS files
+    fs.writeFileSync(__dirname + "/pkg/bbui.js", license + output);
+    fs.writeFileSync(__dirname + "/samples/bbui.js", license + output);
 
-    output += "bb.assignBackHandler(bb.popScreen);";
-    fs.writeFileSync(__dirname + "/pkg/bbui-0.9.5.js", output);
-    fs.writeFileSync(__dirname + "/samples/bbui-0.9.5.js", output);
+	// Grab our CSS information
+	css = include("src/bbUI.css");
+	fs.writeFileSync(__dirname + "/pkg/bbui.css", license + css);
+    fs.writeFileSync(__dirname + "/samples/bbui.css", license + css);
+	
+	// Minify
+	console.log("Minifying...");
+	// First the JavaScript
+	license = '/*! bbUI VERSION: ' + version.major + '.' + version.minor + '.' + version.revision + '.' + version.build + ' | github.com/blackberry/bbUI.js/blob/master/LICENSE !*/';
+	minified = UglifyJS.minify(__dirname + "/pkg/bbui.js");
+	fs.writeFileSync(__dirname + "/pkg/bbui-min.js", license + minified.code);
+	// Then the CSS
+	minified = cleanCSS.process(include(__dirname + "/pkg/bbui.css"));
+	fs.writeFileSync(__dirname + "/pkg/bbui-min.css", license + minified);
+	
+	// Update our build version
+	fs.writeFileSync("JakeVersion", JSON.stringify(version, undefined, 2));
 
-    css += include("src/bbUI.css");
-    fs.writeFileSync(__dirname + "/pkg/bbui-0.9.5.css", css);
-    fs.writeFileSync(__dirname + "/samples/bbui-0.9.5.css", css);
+	// Update the build version in the npm package.json
+	fs.writeFileSync("package.json", JSON.stringify(pkg, undefined, 2));
 
-    console.log("Prepare ship for ludicrous speed!");
+    console.log("Holy Chetara Batman, That was fast!");
 });

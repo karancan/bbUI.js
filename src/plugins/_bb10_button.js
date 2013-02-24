@@ -7,8 +7,18 @@ _bb10_button = {
 	},
 	// Style an individual button
 	style: function(outerElement) {
-		var res = (bb.device.isPlayBook) ? res = 'lowres' : 'hires',
-			disabledStyle,
+		var res = '1280x768-1280x720';
+		
+		// Set our 'res' for known resolutions, otherwise use the default
+		if (bb.device.is1024x600) {
+			res = '1024x600';
+		} else if (bb.device.is1280x768 || bb.device.is1280x720) {
+			res = '1280x768-1280x720';
+		} else if (bb.device.is720x720) {
+			res = '720x720';
+		}
+
+		var disabledStyle,
 			imgSrc,
 			caption,
 			imgElement,
@@ -19,7 +29,7 @@ _bb10_button = {
 			highlight = 'bb-bb10-button bb-bb10-button-'+res+' bb10-button-highlight',
 			outerNormal = 'bb-bb10-button-container-'+res+' bb-bb10-button-container-' + bb.screen.controlColor,
 			outerNormalWithoutImageOnly = outerNormal;
-			
+
 		outerElement.isImageOnly = false;
 		outerElement.enabled = !disabled;
 		caption = outerElement.innerHTML;
@@ -128,6 +138,12 @@ _bb10_button = {
 				this.captionElement.innerHTML = value;
 			};
 			
+		// Returns the caption of the button
+		outerElement.getCaption = function() {
+			return this.captionElement.innerHTML;
+		};
+		outerElement.getCaption = outerElement.getCaption.bind(outerElement);
+			
 		// Assign our set image function
 		outerElement.setImage = function(value) {
 				if (this.isImageOnly) {
@@ -152,6 +168,18 @@ _bb10_button = {
 					this.captionElement.setAttribute('class','');
 				}
 			};
+			
+		// Returns image url
+		outerElement.getImage = function() {
+			if (this.isImageOnly) {
+				return this.captionElement.style['background-image'].slice(4, -1);
+			} else if (this.imgElement) {
+				return this.imgElement.style['background-image'].slice(4, -1);
+			} else {
+				return '';
+			}
+		};
+		outerElement.getImage = outerElement.getImage.bind(outerElement);
 		
 		// Assign our enable function
 		outerElement.enable = function(){ 

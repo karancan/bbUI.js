@@ -7,8 +7,17 @@ _bb10_dropdown = {
 	},
 	// Apply our styling to an individual dropdown
 	style: function(select) {
-		var res = (bb.device.isPlayBook) ? 'lowres' : 'hires',
-			img,
+		var res = '1280x768-1280x720';
+		// Set our 'res' for known resolutions, otherwise use the default
+		if (bb.device.is1024x600) {
+			res = '1024x600';
+		} else if (bb.device.is1280x768 || bb.device.is1280x720) {
+			res = '1280x768-1280x720';
+		} else if (bb.device.is720x720) {
+			res = '720x720';
+		}
+		
+		var img,
 			i,j,
 			innerElement,
 			innerContainer,
@@ -107,7 +116,8 @@ _bb10_dropdown = {
 					var options = select.getElementsByTagName('option'),
 						caption = '',
 						option,
-						item;
+						item,
+						textContainer, textAlign, primaryText, accentText;
 						
 					// First clear any existing items
 					this.itemsElement.innerHTML = '';
@@ -127,8 +137,31 @@ _bb10_dropdown = {
 						if (!item.dropdown.selected) {
 							item.dropdown.selected = item;
 						}
-						item.innerHTML = option.innerHTML;
+						// Append primary text node
+						primaryText = document.createElement('div');
+                        primaryText.setAttribute('class', 'primary-text');
+                        primaryText.innerHTML = option.innerHTML;
+						textContainer = document.createElement('div');
+                        textContainer.setAttribute('class', 'text-container');
+                        textContainer.appendChild(primaryText);
+
+                        // Needed for vertical alignment to work
+                        textAlign = document.createElement('span');
+                        textAlign.setAttribute('class', 'text-align');
+                        item.appendChild(textAlign);
+                        item.appendChild(textContainer);
+
 						this.itemsElement.appendChild(item);
+						
+                        // Accent text for additional cues about this option
+						if (option.hasAttribute('data-bb-accent-text')) {
+							accentText = document.createElement('div');
+							accentText.setAttribute('class','accent-text');
+							accentText.innerHTML = option.getAttribute('data-bb-accent-text');
+							item.accentText = accentText;
+							textContainer.appendChild(accentText);
+						}
+						
 						// Create the image
 						img = document.createElement('div');
 						img.setAttribute('class','bb-bb10-dropdown-selected-image-'+res+'-'+bb.screen.controlColor);
@@ -148,11 +181,17 @@ _bb10_dropdown = {
 						item.ontouchstart = function(event) {
 												this.style['background-color'] = bb.options.highlightColor;
 												this.style['color'] = 'white';
+												if (this.accentText) {
+													this.accentText.style['color'] = 'white';
+												}
 											};
 						
 						item.ontouchend = function(event) {
 												this.style['background-color'] = 'transparent';
 												this.style['color'] = '';
+												if (this.accentText) {
+													this.accentText.style['color'] = '';
+												}
 											};			
 						item.onclick = function() {
 											this.select.setSelectedItem(this.index);
@@ -225,19 +264,28 @@ _bb10_dropdown = {
 								var scrollHeight;
 								this.open = true;
 								// Figure out how many items to show
-								if (this.options.length > 5) {
+								if (bb.device.is720x720 && (this.options.length > 4)) {
+									this.numItems = 3;
+								} else if (this.options.length > 5) {
 									this.numItems = 5;
 								} else {
 									this.numItems = this.options.length;
 								}
-								// Set the open height
-								if (bb.device.isPlayBook) {
+								
+								if (bb.device.is1024x600) {
 									scrollHeight = (this.numItems * 43);
 									this.style.height = 45 + scrollHeight +'px';
-								} else {
+								} else if (bb.device.is1280x768 || bb.device.is1280x720) {
+									scrollHeight = (this.numItems * 99);
+									this.style.height = 95 + scrollHeight +'px';
+								} else if (bb.device.is720x720) {
+									scrollHeight = (this.numItems * 85);
+									this.style.height = 77 + scrollHeight +'px';
+								}else {
 									scrollHeight = (this.numItems * 99);
 									this.style.height = 95 + scrollHeight +'px';
 								}
+								
 								// Refresh our scroller based on the height only once
 								this.scrollArea.style.height = scrollHeight - 10 + 'px';
 								if (!this.isRefreshed) {
@@ -262,6 +310,9 @@ _bb10_dropdown = {
 								if (bb.scroller) {
 									bb.scroller.refresh();
 								}
+								// Scroll the dropdown into view if it's bottom is off the screen
+								this.scrollIntoView(false);
+								
 							};
 		dropdown.internalShow = dropdown.internalShow.bind(dropdown);
 		// Collapse the combo-box
@@ -269,12 +320,16 @@ _bb10_dropdown = {
 								this.open = false;
 								this.style.height = '59px';
 								
-								if (bb.device.isPlayBook) {
+								if (bb.device.is1024x600) {
 									this.style.height = '43px';
-								} else {
+								} else if (bb.device.is1280x768 || bb.device.is1280x720) {
+									this.style.height = '95px';
+								} else if (bb.device.is720x720) {
+									this.style.height = '77px';
+								}else {
 									this.style.height = '95px';
 								}
-									
+								
 								// Animate our caption change
 								this.caption.style.opacity = '1.0';
 								this.caption.style['-webkit-transition'] = 'opacity 0.5s linear';
@@ -393,8 +448,15 @@ _bb10_dropdown = {
 		// Assign our setCaption function
 		select.setCaption = function(value){ 
 				this.dropdown.labelElement.innerHTML = value;
+				this.setAttribute('data-bb-label',value);
 			};
 		select.setCaption = select.setCaption.bind(select);
+		
+		// Assign our setCaption function
+		select.getCaption = function(){ 
+				return this.dropdown.labelElement.innerHTML;
+			};
+		select.getCaption = select.getCaption.bind(select);
 		
 		// Need to return the dropdown instead of the select for dynamic styling
 		return dropdown;

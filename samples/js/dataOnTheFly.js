@@ -14,28 +14,51 @@
 * limitations under the License.
 */
 
-function dataOnTheFly_initialLoad(element) {
-	// I'm just doing a setTimeout to mimic processing some data
-	// in a background worker thread
-	setTimeout(dataOnTheFly_loadAfterTimeout,1000);
+function dataOnTheFly_onScreenReady(element) {
+	// Make the proper activity indicator appear
+	if (bb.device.isBB10) {
+		element.getElementById('bb7Loading').style.display = 'none';
+	} else {
+		element.getElementById('bb10Loading').style.display = 'none';
+	}
 }
 
-function dataOnTheFly_loadAfterTimeout() {
+function dataOnTheFly_initialLoad(element) {
+	var i,
+		listItem, 
+		container, 
+		items = [],
+		dataList = document.getElementById('dataList');
+	
+	for (i = 0; i < 3; i++) {
+		// Create our list item
+		listItem = document.createElement('div');
+		listItem.setAttribute('data-bb-type', 'item');
+		listItem.setAttribute('data-bb-img', 'images/icons/icon11.png');
+		listItem.setAttribute('data-bb-title', 'Title ');
+		listItem.innerHTML = 'My description';
+		listItem.onclick = function() {alert('foo');};
+		items.push(listItem);
+	}
+	// Remove our waiting and refresh the list
 	document.getElementById('waiting').style.display = 'none';
-	dataOnTheFly_addListItem()
-	dataOnTheFly_addListItem()
-	dataOnTheFly_addListItem()
+	dataList.refresh(items);
+	// re-compute the scrolling area
+	if (bb.scroller) {
+		bb.scroller.refresh();
+	}
 }
 
 function dataOnTheFly_addListItem() {
-	var listItem, container, dataList = document.getElementById('dataList');
+	var listItem, 
+		dataList = document.getElementById('dataList');
 	// Create our list item
 	listItem = document.createElement('div');
 	listItem.setAttribute('data-bb-type', 'item');
 	listItem.setAttribute('data-bb-img', 'images/icons/icon11.png');
 	listItem.setAttribute('data-bb-title', 'Title ');
 	listItem.innerHTML = 'My description';
-	// Append the item
+	listItem.onclick = function() {alert('foo');};
 	dataList.appendItem(listItem);
 }
 

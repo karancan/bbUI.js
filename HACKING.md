@@ -5,11 +5,18 @@ or follow the installation guide [here][2]
 
 # Building
 
-Building is done with [jake][3]. Jake can be installed with npm with:
+Building is done with [jake][3], JavaScript minifying is done with [Uglify-js](https://github.com/mishoo/UglifyJS) and CSS 
+minifying is done with [CleanCSS](https://github.com/GoalSmashers/clean-css). 
+
+If you don't already have Jake installed, first install it using npm with:
 
     npm install -g jake
+    
+Next, ensure you're in the root directory of the project then install development dependencies with:
 
-and to build bbUI.js you just run:
+    npm install
+    
+Finally, build bbUI.js:
 
     jake
 

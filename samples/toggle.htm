@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN">
 <!--
-* Copyright 2010-2011 Research In Motion Limited.
+* Copyright 2010-2012 Research In Motion Limited.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -14,9 +14,8 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 -->
-<div style="background-color: #252525;color:white;" data-bb-type="screen" data-bb-effect="slide-up">
+<div data-bb-type="screen" data-bb-effect="slide-up">
 	<div data-bb-type="title" data-bb-caption="Toggle Buttons" data-bb-back-caption="Back" ></div>
-    <script id="toggleJS" src="js/toggle.js"></script>
 	<style>
 		.cell {
 			line-height: 100px;
@@ -49,13 +48,6 @@
 			</tr>
 		</table>		
 	</div>
-    
-	<div data-bb-type="round-panel" style="background-color: #252525"> 
-		<div data-bb-type="panel-header">Toggle Button Functions</div>
-        <div data-bb-type="button" data-bb-style="stretch" onclick="document.getElementById('choiceThree').setChecked(!document.getElementById('choiceThree').checked);" >Call setChecked()</div>
-		<div data-bb-type="button" data-bb-style="stretch" onclick="hideToggle()" id="hide">Hide Toggle</div>
-        <div data-bb-type="button" data-bb-style="stretch" onclick="showToggle()" id="show">Show Toggle</div>
-        <div data-bb-type="button" data-bb-style="stretch" onclick="removeToggle()" id="remove">Remove Toggle</div>        
-	</div>
+
 	<div data-bb-type="action-bar" data-bb-back-caption="Back"></div>
 </div>

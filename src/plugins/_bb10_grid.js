@@ -1,9 +1,16 @@
 _bb10_grid = {  
     apply: function(elements) {
-		var res = (bb.device.isPlayBook) ? 'lowres' : 'hires',
+		var res = '1280x768-1280x720',
 			solidHeader = false,
 			headerJustify;
-
+		
+		// Set our 'res' for known resolutions, otherwise use the default
+		if (bb.device.is1024x600) {
+			res = '1024x600';
+		} else if (bb.device.is1280x768 || bb.device.is1280x720) {
+			res = '1280x768-1280x720';
+		}
+				
 		// Apply our transforms to all grids
 		for (var i = 0; i < elements.length; i++) {
 			var j,
@@ -101,20 +108,29 @@ _bb10_grid = {
 
 						// Calculate the width
 						if (hardCodedColumnNum > 0) {
-							width = (window.innerWidth/hardCodedColumnNum) - 6;
+							// If there are more items than the number of hardcoded columns then
+							// we need to shrink the item size a bit to show that there are available
+							// items to the left to scroll to
+							if ((rowItems.length > hardCodedColumnNum) && !bb.device.isPlayBook) {
+								innerChildNode.style['overflow-y'] = 'hidden';
+								innerChildNode.style['overflow-x'] = 'scroll';
+								width = (window.innerWidth/(parseInt(hardCodedColumnNum) + 0.5));
+							} else {
+								width = (window.innerWidth/hardCodedColumnNum) - 6;
+							}
 						} else {
 							width = (window.innerWidth/numItems) - 6;
 						}
-							
+												
 						for (k = 0; k < numItems; k++) {
 							itemNode = rowItems[k];
 							
-							// Do not show more than the hardcoded number of items
-							if ((hardCodedColumnNum > 0) && ((k-1) > hardCodedColumnNum)) {
+							// If it is PlayBook, Don't do the carousel, it doesn't work well
+							if (bb.device.isPlayBook && (hardCodedColumnNum >0) && (k > hardCodedColumnNum - 1)) {
 								itemNode.style.display = 'none';
 								continue;
 							}
-							
+														
 							subtitle = itemNode.innerHTML;
 							title = itemNode.getAttribute('data-bb-title');
 							hasOverlay = (subtitle || title);
@@ -123,7 +139,7 @@ _bb10_grid = {
 							td = document.createElement('td');
 							tr.appendChild(td);
 							td.appendChild(itemNode);
-							columnCount++;
+							columnCount++;							
 							
 							// Find out how to size the images
 							if (outerElement.isSquare) {
@@ -137,11 +153,52 @@ _bb10_grid = {
 
 							// Create our display image
 							image = document.createElement('img');
-							image.setAttribute('src',itemNode.getAttribute('data-bb-img'));
 							image.style.height = height + 'px';
 							image.style.width = width + 'px';
+							image.style.opacity = '0';
+							image.style['-webkit-transition'] = 'opacity 0.5s linear';
+							image.style['-webkit-transform'] = 'translate3d(0,0,0)';
+							image.itemNode = itemNode;
 							itemNode.image = image;
 							itemNode.appendChild(image);
+							
+							// Load our image once onbbuidomready 
+							itemNode.onbbuidomready = function() {
+										if (bb.isScrolledIntoView(this)) {
+											// Animate its visibility once loaded
+											this.image.onload = function() {
+												this.style.opacity = '1.0';
+											}
+											this.image.src = this.getAttribute('data-bb-img');
+										} else {
+											document.addEventListener('bbuiscrolling', this.onbbuiscrolling,false);
+											// Add listener for removal on popScreen
+											this.listener = {name: 'bbuiscrolling', eventHandler: this.onbbuiscrolling};
+											bb.documentListeners.push(this.listener);
+										}
+										document.removeEventListener('bbuidomready', this.onbbuidomready,false);
+									};
+							itemNode.onbbuidomready = itemNode.onbbuidomready.bind(itemNode);
+							document.addEventListener('bbuidomready', itemNode.onbbuidomready,false);
+							
+							// Only have the image appear when it scrolls into view
+							itemNode.onbbuiscrolling = function() {
+										if (bb.isScrolledIntoView(this)) {
+											// Animate its visibility once loaded
+											this.image.onload = function() {
+												this.style.opacity = '1.0';
+											}
+											this.image.src = this.getAttribute('data-bb-img');
+											document.removeEventListener('bbuiscrolling', this.onbbuiscrolling,false);
+											// Remove our listenter from the global list as well
+											var index = bb.documentListeners.indexOf(this.listener);
+											if (index >= 0) {
+												bb.documentListeners.splice(index,1);
+											}
+										} 
+									};
+							itemNode.onbbuiscrolling = itemNode.onbbuiscrolling.bind(itemNode);	
+							
 							// Create our translucent overlay
 							if (hasOverlay) {
 								overlay = document.createElement('div');
@@ -234,14 +291,20 @@ _bb10_grid = {
 										if (row.hasAttribute('data-bb-columns')) {
 											hardCodedColumnNum = row.getAttribute('data-bb-columns');
 										}
-										
+
 										// Calculate the width
 										if (hardCodedColumnNum > 0) {
-											width = (window.innerWidth/hardCodedColumnNum) - 6;
+											// If there are more items than the number of hardcoded columns then
+											// we need to shrink the item size a bit to show that there are available
+											// items to the left to scroll to
+											if ((rowItems.length > hardCodedColumnNum) && !bb.device.isPlayBook) {
+												width = (window.innerWidth/(parseInt(hardCodedColumnNum) + 0.5));
+											} else {
+												width = (window.innerWidth/hardCodedColumnNum) - 6;
+											}
 										} else {
 											width = (window.innerWidth/numItems) - 6;
-										}										
-										
+										}
 										// Adjust all the items
 										for (j = 0; j < numItems; j++ ) {
 											itemNode = rowItems[j];
@@ -275,6 +338,29 @@ _bb10_grid = {
 								};
 			outerElement.orientationChanged = outerElement.orientationChanged.bind(outerElement);	
 			window.addEventListener('resize', outerElement.orientationChanged,false); 
+			// Add listener for removal on popScreen
+			bb.windowListeners.push({name: 'resize', eventHandler: outerElement.orientationChanged});
+			
+			// Add show function
+			outerElement.show = function() {
+				this.style.display = 'block';
+				bb.refresh();
+				};
+			outerElement.show = outerElement.show.bind(outerElement);
+
+			// Add hide function
+			outerElement.hide = function() {
+				this.style.display = 'none';
+				bb.refresh();
+				};
+			outerElement.hide = outerElement.hide.bind(outerElement);
+	
+			// Add remove function
+			outerElement.remove = function() {
+				this.parentNode.removeChild(this);
+				bb.refresh();
+				};
+			outerElement.remove = outerElement.remove.bind(outerElement);
 		}		
     }
 };

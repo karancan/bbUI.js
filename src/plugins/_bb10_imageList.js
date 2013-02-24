@@ -1,10 +1,19 @@
 _bb10_imageList = {  
     apply: function(elements) {
-		var res = (bb.device.isPlayBook) ? 'lowres' : 'hires',
+		var res = '1280x768-1280x720',
 			i,j,
 			outerElement,
 			items;
 	
+		// Set our 'res' for known resolutions, otherwise use the default
+		if (bb.device.is1024x600) {
+			res = '1024x600';
+		} else if (bb.device.is1280x768 || bb.device.is1280x720) {
+			res = '1280x768-1280x720';
+		} else if (bb.device.is720x720) {
+			res = '720x720';
+		}
+		
 		// Apply our transforms to all Image Lists
 		for (i = 0; i < elements.length; i++) {
 			outerElement = elements[i];
@@ -85,43 +94,53 @@ _bb10_imageList = {
 						if (!this.hideImages) {
 							img = document.createElement('img');
 							img.outerElement = this;
+							
 							innerChildNode.img = img;
 							if (this.imagePlaceholder) {
 								img.placeholder = this.imagePlaceholder;
-								img.src = innerChildNode.hasAttribute('data-bb-img') ? innerChildNode.getAttribute('data-bb-img') : this.imagePlaceholder;
+								img.path = innerChildNode.hasAttribute('data-bb-img') ? innerChildNode.getAttribute('data-bb-img') : this.imagePlaceholder;
 							} else {
-								img.setAttribute('src',innerChildNode.getAttribute('data-bb-img'));
+								img.path = innerChildNode.getAttribute('data-bb-img');
 							}
 							innerChildNode.appendChild(img);
 							
 							if (this.imageEffect) {
-								img.style.opacity = '0.0';
-								img.even = (j%2 == 0)
-								img.onload = function() {
-												this.show();
-											};
-								img.show = function() {
+								img.style.opacity = '0';
+								img.style['-webkit-transition'] = 'opacity 0.5s linear';
+								/*img.style['-webkit-backface-visibility'] = 'hidden';
+								img.style['-webkit-perspective'] = 1000;
+								img.style['-webkit-transform'] = 'translate3d(0,0,0)';*/  // This was causing webkit to crash
+								innerChildNode.imageList = this;
+								// Load our image once bbuilistready 
+								innerChildNode.bbuilistready = function() {
+											// Animate its visibility once loaded
+											this.img.onload = function() {
 												this.style.opacity = '1.0';
-												if (this.even) { // Change timing based on even and odd numbers for some randomness
-													this.style['-webkit-transition'] = 'opacity 0.5s linear';
-												} else {
-													this.style['-webkit-transition'] = 'opacity 1.0s linear';
-												}
-												this.style['-webkit-backface-visibility'] = 'hidden';
-												this.style['-webkit-perspective'] = 1000;
-												this.style['-webkit-transform'] = 'translate3d(0,0,0)';
-											};
-								img.show = img.show.bind(img);
-							}
-							// Handle the error scenario
-							if (this.imagePlaceholder) {
-								img.onerror = function() {
-												if (this.src == this.placeholder) return;
-												this.src = this.placeholder;
-												if (this.outerElement.imageEffect) {
-													this.show();
-												}
-											};
+											}
+											this.img.src = this.img.path;
+											
+											if (this.imageList.imagePlaceholder) {
+												this.img.onerror = function() {
+													if (this.src == this.placeholder) return;
+													this.src = this.placeholder;
+												};
+											}
+											document.removeEventListener('bbuilistready', this.bbuilistready,false);
+										};
+								innerChildNode.bbuilistready = innerChildNode.bbuilistready.bind(innerChildNode);
+								document.addEventListener('bbuilistready', innerChildNode.bbuilistready,false);
+							} else {
+								img.src = img.path;
+								// Handle the error scenario
+								if (this.imagePlaceholder) {
+									img.onerror = function() {
+													if (this.src == this.placeholder) return;
+													this.src = this.placeholder;
+													if (this.outerElement.imageEffect) {
+														this.show();
+													}
+												};
+								}
 							}
 						}
 						// Create the details container
@@ -146,7 +165,7 @@ _bb10_imageList = {
 						
 						// Create our description
 						descriptionDiv = document.createElement('div');
-						descriptionDiv.setAttribute('class','description');
+						descriptionDiv.setAttribute('class','description bb-bb10-image-list-description-'+bb.screen.listColor);
 						details.description = descriptionDiv;
 						details.appendChild(descriptionDiv);
 						
@@ -206,23 +225,26 @@ _bb10_imageList = {
 								
 								// Assign our touch handlers
 								btn.ontouchstart = function() {
+												if (!this.onbtnclick) return;
 												this.btnInner.setAttribute('class',this.btnInner.highlight);
 												this.btnBorder.style.background = '-webkit-gradient(linear, center top, center bottom, from(rgb(' + (bb.options.shades.R + 32) +',' + (bb.options.shades.G + 32) + ','+ (bb.options.shades.B + 32) +')), to('+bb.options.highlightColor+'))';
 											};
 											
 								btn.ontouchend = function() {
+												if (!this.onbtnclick) return;
 												this.btnBorder.style.background = '';
 												this.btnInner.setAttribute('class',this.btnInner.normal);
 											};
 								
 								// Assign our click handler if one was available
-								if (btn.onbtnclick) {
-									btn.onclick = function(e) {
-													e.stopPropagation();
+								btn.onclick = function(e) {
+												e.stopPropagation();
+												if (this.onbtnclick) {
 													this.outerElement.selected = this.innerChildNode;
 													this.onbtnclick();
 												}
-								}
+											}
+								
 								
 							} else { // Arrow list
 								btnInner.normal = btnInner.normal + ' bb-image-list-item-chevron-'+bb.screen.listColor;
@@ -236,24 +258,42 @@ _bb10_imageList = {
 							// Create the accent text
 							if (innerChildNode.hasAttribute('data-bb-accent-text')) {
 								accentText = document.createElement('div');
-								accentText.setAttribute('class','accent-text');
+								accentText.setAttribute('class','accent-text bb-bb10-image-list-accent-text-'+bb.screen.listColor);
 								accentText.innerHTML = innerChildNode.getAttribute('data-bb-accent-text');
 								details.appendChild(accentText);
 								details.accentText = accentText;
 							}
 						}
 						
-						// Adjust the description description
+						// Adjust the description 
 						if (description.length == 0) {
 							description = '&nbsp;';
 							descriptionDiv.style.visibilty = 'hidden';
-							// Center the title if no description is given
-							title.style['margin-top'] = (bb.device.isPlayBook) ? '17px' : '18px';
-							// Adjust highlight overlay
-							overlay.style['margin-top'] = (bb.device.isPlayBook) ? '-73px' : '-128px';
+							// Adjust margins
+							if (bb.device.is1024x600) {
+								title.style['margin-top'] = '16px';
+								overlay.style['margin-top'] = '-72px';
+							} else if (bb.device.is1280x768 || bb.device.is1280x720) {
+								title.style['margin-top'] = '-7px';
+								overlay.style['margin-top'] = '-121px';
+							} else if (bb.device.is720x720) {
+								title.style['margin-top'] = '-14px';
+								overlay.style['margin-top'] = '-108px';
+							}else {
+								title.style['margin-top'] = '-7px';
+								overlay.style['margin-top'] = '-121px';
+							}
 							// Adjust accent text
 							if (accentText) {
-								accentText.style['margin-top'] = (bb.device.isPlayBook) ? '-52px' : '-82px';
+								if (bb.device.is1024x600) {
+									accentText.style['margin-top'] = '-52px';
+								} else if (bb.device.is1280x768 || bb.device.is1280x720) {
+									accentText.style['margin-top'] = '-82px';
+								} else if (bb.device.is720x720) {
+									accentText.style['margin-top'] = '-82px';
+								} else {
+									accentText.style['margin-top'] = '-82px';
+								}
 							}
 						}
 						descriptionDiv.innerHTML = description;
@@ -271,8 +311,7 @@ _bb10_imageList = {
 						innerChildNode.title = title.innerHTML;	
 						
 						innerChildNode.ontouchstart = function () {
-														//this.setAttribute('class',this.highlight);
-														this.overlay.style['border-color'] =  bb.options.shades.darkOutline;
+														if (!innerChildNode.trappedClick && !this.contextMenu) return;
 														innerChildNode.fingerDown = true;
 														innerChildNode.contextShown = false;
 														if (innerChildNode.contextMenu) {
@@ -280,7 +319,7 @@ _bb10_imageList = {
 														}
 													};
 						innerChildNode.ontouchend = function (event) {
-														//this.setAttribute('class',this.normal);
+														if (!innerChildNode.trappedClick && !this.contextMenu) return;
 														this.overlay.style['border-color'] = 'transparent';
 														innerChildNode.fingerDown = false;
 														if (innerChildNode.contextShown) {
@@ -292,6 +331,7 @@ _bb10_imageList = {
 														if (innerChildNode.fingerDown) {
 															innerChildNode.contextShown = true;
 															this.setAttribute('class',this.highlight);
+															this.overlay.style['border-color'] =  bb.options.shades.darkOutline;
 															innerChildNode.contextMenu.hideEvents.push(this.finishHighlight);
 															innerChildNode.contextMenu.peek({title:this.title,description:this.description, selected: this});
 														}
@@ -303,12 +343,11 @@ _bb10_imageList = {
 						innerChildNode.onclick = undefined;
 						innerChildNode.outerElement = this;
 						innerChildNode.addEventListener('click',function (e) {
-								this.setAttribute('class',this.highlight);
+								if (!innerChildNode.trappedClick) return;
 								this.outerElement.selected = this;
 								if (this.trappedClick) {
 									setTimeout(this.trappedClick, 0);
 								}
-								setTimeout(this.finishHighlight, 250);
 							},false);
 							
 						// Finish the highlight on a delay
@@ -372,17 +411,49 @@ _bb10_imageList = {
 					this.styleItem(item);
 					this.appendChild(item);
 					this.items.push(item);
+					// Fire our list event
+					var evt = document.createEvent('Events');
+					evt.initEvent('bbuilistready', true, true);
+					document.dispatchEvent(evt);
 					if (bb.scroller) {
 						bb.scroller.refresh();
 					}
 				};
 			outerElement.appendItem = outerElement.appendItem.bind(outerElement);
 			
+			// Refresh all the items in the list control
+			outerElement.refresh = function(listItems) {
+					if (!listItems || !listItems.length || (listItems.length <=0)) return;
+					var i,
+						item,
+						innerDiv = document.createElement('div');
+					this.items = [];
+					for (i = 0; i < listItems.length; i++) {
+						item = listItems[i];
+						this.styleItem(item);
+						this.items.push(item);
+						innerDiv.appendChild(item);
+					}
+					// Refresh the 
+					this.innerHTML = '';
+					this.appendChild(innerDiv);		
+
+					// Fire our list event
+					var evt = document.createEvent('Events');
+					evt.initEvent('bbuilistready', true, true);
+					document.dispatchEvent(evt);
+				};
+			outerElement.refresh = outerElement.refresh.bind(outerElement);
+			
 			// Insert an item before another item in the list
 			outerElement.insertItemBefore = function(newItem, existingItem) {
 					this.styleItem(newItem);
 					this.insertBefore(newItem,existingItem);
 					this.items.splice(this.items.indexOf(existingItem),0,newItem);
+					// Fire our list event
+					var evt = document.createEvent('Events');
+					evt.initEvent('bbuilistready', true, true);
+					document.dispatchEvent(evt);
 					if (bb.scroller) {
 						bb.scroller.refresh();
 					}
@@ -410,6 +481,26 @@ _bb10_imageList = {
 				};
 			outerElement.clear = outerElement.clear.bind(outerElement);
 			
+			// Add our show function
+			outerElement.show = function() {
+				this.style.display = 'block';
+				bb.refresh();
+					};
+			outerElement.show = outerElement.show.bind(outerElement);
+			
+			// Add our hide function
+			outerElement.hide = function() {
+				this.style.display = 'none';
+				bb.refresh();
+					};
+			outerElement.hide = outerElement.hide.bind(outerElement);
+			
+			// Add remove function
+			outerElement.remove = function() {
+				this.parentNode.removeChild(this);
+				bb.refresh();
+					};
+			outerElement.remove = outerElement.remove.bind(outerElement);			
 			
 			// Gather our inner items and style them
 			items = outerElement.querySelectorAll('[data-bb-type=item], [data-bb-type=header]');

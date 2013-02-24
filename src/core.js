@@ -2,6 +2,8 @@ bb = {
 	scroller: null,  
     screens: [],
 	dropdownScrollers: [],
+	windowListeners: [],
+	documentListeners: [],
 	transparentPixel: 'data:image/png;base64,R0lGODlhAQABAID/AMDAwAAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==',
 						
 	// Core control variables
@@ -41,14 +43,21 @@ bb = {
 		// Initialize our flags once so that we don't have to run logic in-line for decision making
 		bb.device.isRipple = (navigator.userAgent.indexOf('Ripple') >= 0) || window.tinyHippos;
 		bb.device.isPlayBook = (navigator.userAgent.indexOf('PlayBook') >= 0) || ((window.innerWidth == 1024 && window.innerHeight == 600) || (window.innerWidth == 600 && window.innerHeight == 1024));
+		
 		if (bb.device.isPlayBook && bb.options.bb10ForPlayBook) {
 			bb.device.isBB10 = true;
 		} else {
-			bb.device.isBB10 = (navigator.userAgent.indexOf('Version/10.0') >= 0);
+			bb.device.isBB10 = (navigator.userAgent.indexOf('BB10') >= 0);
 		}
 		bb.device.isBB7 = (navigator.userAgent.indexOf('7.0.0') >= 0) || (navigator.userAgent.indexOf('7.1.0') >= 0);
 		bb.device.isBB6 = navigator.userAgent.indexOf('6.0.0') >= 0;
 		bb.device.isBB5 = navigator.userAgent.indexOf('5.0.0') >= 0;
+		
+		// Set our resolution flags
+		bb.device.is1024x600 = bb.device.isPlayBook;
+		bb.device.is1280x768 = (window.innerWidth == 1280 && window.innerHeight == 768) || (window.innerWidth == 768 && window.innerHeight == 1280);
+		bb.device.is720x720 = (window.innerWidth == 720 && window.innerHeight == 720);
+		bb.device.is1280x720 = (window.innerWidth == 1280 && window.innerHeight == 720) || (window.innerWidth == 720 && window.innerHeight == 1280);
 		
 		// Determine HiRes
 		if (bb.device.isRipple) {
@@ -57,10 +66,21 @@ bb = {
 			bb.device.isHiRes = screen.width > 480 || screen.height > 480;
 		}
 		
+		// Check if a viewport tags exist and remove them, We'll add the bbUI friendly one 
+		var viewports = document.head.querySelectorAll('meta[name=viewport]'),
+			i;
+		for (i = 0; i < viewports.length; i++) {
+			try {
+				document.head.removeChild(viewports[i]);
+			} catch (ex) {
+				// Throw away the error
+			}
+		}			
+		
 		// Set our meta tags for content scaling
 		var meta = document.createElement('meta');
 		meta.setAttribute('name','viewport');
-		if (bb.device.isBB10 && !bb.device.isPlayBook) { 
+		if (bb.device.isBB10 && !bb.device.is1024x600) { 
 			meta.setAttribute('content','initial-scale='+ (1/window.devicePixelRatio) +',user-scalable=no');
 		} else {
 			meta.setAttribute('content','initial-scale=1.0,width=device-width,user-scalable=no,target-densitydpi=device-dpi');
@@ -76,7 +96,9 @@ bb = {
 			G : G,
 			B : B,
 			darkHighlight: 'rgb('+ (R - 120) +', '+ (G - 120) +', '+ (B - 120) +')',
-			darkOutline: 'rgb('+ (R - 32) +', '+ (G - 32) +', '+ (B - 32) +')'		
+			mediumHighlight: 'rgb('+ (R - 60) +', '+ (G - 60) +', '+ (B - 60) +')',
+			darkOutline: 'rgb('+ (R - 32) +', '+ (G - 32) +', '+ (B - 32) +')',
+			darkDarkHighlight: 'rgb('+ (R - 140) +', '+ (G - 140) +', '+ (B - 140) +')'
 		};
 		
 		// Create our coloring
@@ -88,19 +110,22 @@ bb = {
 				document.styleSheets[0].insertRule('.pb-button-light-highlight {color:'+bb.options.shades.darkHighlight+';background-image: -webkit-gradient(linear, center top, center bottom, from('+bb.options.highlightColor+'), to('+bb.options.shades.darkHighlight+'));}', 0);
 				document.styleSheets[0].insertRule('.pb-button-dark-highlight {color:'+bb.options.highlightColor+';background-image: -webkit-gradient(linear, center top, center bottom, from('+bb.options.highlightColor+'), to('+bb.options.shades.darkHighlight+'));}', 0);
 				document.styleSheets[0].insertRule('.bb10Accent {background-color:'+ bb.options.shades.darkHighlight +';}', 0);
+				document.styleSheets[0].insertRule('.bb10-title-colored {color:white;text-shadow: 0px 2px black;background-image: -webkit-gradient(linear, center top, center bottom, from('+bb.options.highlightColor+'), to('+bb.options.shades.darkHighlight+'));}', 0);
+				document.styleSheets[0].insertRule('.bb10-title-button-container-colored {color:white;text-shadow: 0px 2px black;border-color: ' + bb.options.shades.darkDarkHighlight +';background-color: '+bb.options.shades.darkHighlight+';}', 0);
+				document.styleSheets[0].insertRule('.bb10-title-button-colored {border-color: ' + bb.options.shades.darkDarkHighlight +';background-image: -webkit-gradient(linear, center top, center bottom, from('+bb.options.highlightColor+'), to('+bb.options.shades.mediumHighlight+'));}', 0);
+				document.styleSheets[0].insertRule('.bb10-title-button-colored-highlight {border-color: ' + bb.options.shades.darkDarkHighlight +';background-color: '+bb.options.shades.darkHighlight+';}', 0);
 			}
 			catch (ex) {
 				console.log(ex.message);
 			}
 		}
 		// Set our coloring
-		bb.actionBar.color = (bb.options.actionBarDark) ? 'dark' : 'light';
 		bb.screen.controlColor = (bb.options.controlsDark) ? 'dark' : 'light';
 		bb.screen.listColor = (bb.options.listsDark) ? 'dark' : 'light';
 		
 		// Set up our pointers to objects for each OS version
 		if (bb.device.isBB10) {
-			bb.imageList = _bb10_imageList
+			bb.imageList = _bb10_imageList;
 			bb.activityIndicator = _bb10_activityIndicator;
 			bb.fileInput = _bb10_fileInput;
 			bb.button = _bb10_button;
@@ -148,12 +173,48 @@ bb = {
 			bb.progress = _bb_progress;
 			bb.roundPanel = _bb_5_6_7_roundPanel;
 		}
+		
+		// Add our keyboard listener for BB10
+		if (bb.device.isBB10 && !bb.device.isPlayBook && !bb.device.isRipple && !bb.device.is720x720) {
+			// Hide our action bar when the keyboard is about to pop up
+			blackberry.event.addEventListener('keyboardOpening', function() {
+				if (bb.screen.currentScreen.actionBar) {
+					bb.screen.currentScreen.actionBar.hide();
+				} 
+			});
+			
+			// Scroll to our selected input once the keyboard is opened
+			blackberry.event.addEventListener('keyboardOpened', function() {
+				if (bb.screen.currentScreen.actionBar) {
+					if (bb.screen.focusedInput) {
+						if (bb.screen.focusedInput.container) {
+							bb.screen.focusedInput.container.scrollIntoView(false);
+						} else {
+							bb.screen.focusedInput.scrollIntoView(false);
+						}
+					}
+				} 
+			});
+			
+			// Show our action bar when the keyboard disappears
+			blackberry.event.addEventListener('keyboardClosed', function() {
+				if (bb.screen.currentScreen.actionBar) {
+					bb.screen.currentScreen.actionBar.show();
+				} 
+			});
+		}
 	},
 
     doLoad: function(element) {
         // Apply our styling
         var root = element || document.body;
         bb.screen.apply(root.querySelectorAll('[data-bb-type=screen]'));
+		bb.style(root);
+        // perform device specific formatting
+        bb.screen.reAdjustHeight();	
+    },
+	
+	style: function(root) {
 		if (bb.scrollPanel) 			bb.scrollPanel.apply(root.querySelectorAll('[data-bb-type=scroll-panel]'));  
 	    if (bb.textInput) 				bb.textInput.apply(root.querySelectorAll('textarea, input[type=text], [type=password], [type=tel], [type=url], [type=email], [type=number], [type=date], [type=time], [type=datetime], [type=month], [type=datetime-local], [type=color], [type=search]'));
 		if (bb.dropdown)				bb.dropdown.apply(root.querySelectorAll('select'));
@@ -171,9 +232,7 @@ bb = {
 		if (bb.activityIndicator) 		bb.activityIndicator.apply(root.querySelectorAll('[data-bb-type=activity-indicator]'));
 		if (bb.checkbox)				bb.checkbox.apply(root.querySelectorAll('input[type=checkbox]'));
 		if (bb.toggle)					bb.toggle.apply(root.querySelectorAll('[data-bb-type=toggle]'));
-        // perform device specific formatting
-        bb.screen.reAdjustHeight();	
-    },
+	},
 	
 	device: {  
         isHiRes: false, 
@@ -181,17 +240,22 @@ bb = {
 		isBB6: false,
 		isBB7: false,
 		isBB10: false,
-        isPlayBook: false,
-        isRipple: false
+        isPlayBook: false, 
+        isRipple: false,
+		// Resolutions
+		is1024x600: false,
+		is1280x768: false,
+		is720x720: false,
+		is1280x720: false		
     },
 	
 	// Options for rendering
 	options: {
 		onbackkey: null,
 		onscreenready: null,
-		ondomready: null,  	
-		actionBarDark: true, 	
+		ondomready: null,  		
 		controlsDark: false, 
+		coloredTitleBar: false,
 		listsDark: false,
 		highlightColor: '#00A8DF',
 		bb10ForPlayBook: false
@@ -236,26 +300,30 @@ bb = {
 		}
 		
         scripts.forEach(function (script) {
-            var scriptTag = document.createElement('script');
-
-            if (script.text) {
-                //if there is text, just eval it since they probably don't have a src.
-                eval(script.text);
-                return;
-            }
-            var scriptGuid = bb.guidGenerator();
-			// Either update the old screen in the stack record or add to the new one
-			if (screenRecord) {
-				screenRecord.scripts.push({'id' : scriptGuid, 'onunload': script.getAttribute('onunload')});
-			} else {
-				container.scriptIds.push({'id' : scriptGuid, 'onunload': script.getAttribute('onunload')});
+            var scriptTag = document.createElement('script'),
+				type = script.getAttribute('type');
+			
+			// First check the type. If the type isn't specified or if it isn't "text/javascript" then skip the script
+			if (!type || type.toLowerCase() == 'text/javascript') {
+				if (script.text) {
+					//if there is text, just eval it since they probably don't have a src.
+					eval(script.text);
+					return;
+				}
+				var scriptGuid = bb.guidGenerator();
+				// Either update the old screen in the stack record or add to the new one
+				if (screenRecord) {
+					screenRecord.scripts.push({'id' : scriptGuid, 'onunload': script.getAttribute('onunload')});
+				} else {
+					container.scriptIds.push({'id' : scriptGuid, 'onunload': script.getAttribute('onunload')});
+				}
+				scriptTag.setAttribute('type','text/javascript');
+				scriptTag.setAttribute('src', script.getAttribute('src'));
+				scriptTag.setAttribute('id', scriptGuid);
+				newScriptTags.push(scriptTag);
+				// Remove script tag from container because we are going to add it to <head>
+				script.parentNode.removeChild(script);
 			}
-            scriptTag.setAttribute('type','text/javascript');
-            scriptTag.setAttribute('src', script.getAttribute('src'));
-            scriptTag.setAttribute('id', scriptGuid);
-            newScriptTags.push(scriptTag);
-            // Remove script tag from container because we are going to add it to <head>
-            script.parentNode.removeChild(script);
         });
 
         // Add getElementById for the container so that it can be used in the onscreenready event
@@ -458,6 +526,8 @@ bb = {
 			bb.domready.id = id;
 			bb.domready.params = params;
 			setTimeout(bb.domready.fire, 1); 
+		} else {
+			setTimeout(bb.domready.fireEventsOnly, 1);
 		}
 		
 		// If an effect was applied then the popping will be handled at the end of the animation
@@ -469,6 +539,8 @@ bb = {
 					bb.removePreviousScreenFromDom();
 				}
 			} else if (popping) {
+				screen.style['z-index'] = '';
+				
 				var currentScreen = bb.screens[bb.screens.length-1].container;
 				currentScreen.parentNode.removeChild(currentScreen);
 				// Pop it from the stack
@@ -492,12 +564,44 @@ bb = {
 				setTimeout(bb.domready.fire, 250);
 				return;
 			}
+			
+			// Raise an internal event to let the rest of the framework know that the dom is ready
+			var evt = document.createEvent('Events');
+			evt.initEvent('bbuidomready', true, true);
+			document.dispatchEvent(evt);
+			// Fire our list event
+			evt = document.createEvent('Events');
+			evt.initEvent('bbuilistready', true, true);
+			document.dispatchEvent(evt);
+			// Fire our event
 			bb.options.ondomready(bb.domready.container, bb.domready.id, bb.domready.params);
 			bb.domready.container = null;
 			bb.domready.id = null;	
 		    bb.domready.params = null;
+			// Raise an internal event to let the rest of the framework know that the dom has been processed
+			evt = document.createEvent('Events');
+			evt.initEvent('bbuidomprocessed', true, true);
+			document.dispatchEvent(evt);
+		},
+		
+		fireEventsOnly : function() {
+			if (bb.screen.animating) {
+				setTimeout(bb.domready.fireEventsOnly, 250);
+				return;
+			}
+			// Raise an internal event to let the rest of the framework know that the dom is ready
+			var evt = document.createEvent('Events');
+			evt.initEvent('bbuidomready', true, true);
+			document.dispatchEvent(evt);
+			// Fire our list event
+			evt = document.createEvent('Events');
+			evt.initEvent('bbuilistready', true, true);
+			document.dispatchEvent(evt);
+			// Raise an internal event to let the rest of the framework know that the dom has been processed
+			evt = document.createEvent('Events');
+			evt.initEvent('bbuidomprocessed', true, true);
+			document.dispatchEvent(evt);
 		}
-	
 	},
 	
 	// Creates the scroller for the screen
@@ -531,10 +635,20 @@ bb = {
 						bb.options.screen.onBeforeScrollStart(e);
 					}*/
 				},
+				onScrollEnd: function(e) {
+					// Raise an internal event to let the rest of the framework know that content is scrolling
+					evt = document.createEvent('Events');
+					evt.initEvent('bbuiscrolling', true, true);
+					document.dispatchEvent(evt);
+				},
 				onScrollMove: function(e) {
 					if (screen.onscroll) {
 						screen.onscroll(e);
 					}
+					// Raise an internal event to let the rest of the framework know that content is scrolling
+					evt = document.createEvent('Events');
+					evt.initEvent('bbuiscrolling', true, true);
+					document.dispatchEvent(evt);
 				}};
 				// LEAVING THESE HERE INCASE WE NEED TO FALL BACK TO ISCROLL OVERRIDES
 				/*if (bb.options.screen) {
@@ -618,14 +732,30 @@ bb = {
 
     // Pop a screen from the stack
     popScreen: function() {
-		var numItems = bb.screens.length;
+		var numItems = bb.screens.length,
+			i,
+			listener;
         if (numItems > 1) {
             bb.removeLoadedScripts();
 			bb.clearScrollers();
 		    bb.menuBar.clearMenu();
 			bb.screen.overlay = null;
 			bb.screen.tabOverlay = null;
-
+			
+			// Clear any window listeners
+			for (i = 0 ; i < bb.windowListeners.length; i++) {
+				listener = bb.windowListeners[i];
+				window.removeEventListener(listener.name, listener.eventHandler, false);
+			}
+			bb.windowListners = [];
+			
+			// Clear any document listeners
+			for (i = 0 ; i < bb.documentListeners.length; i++) {
+				listener = bb.documentListeners[i];
+				document.removeEventListener(listener.name, listener.eventHandler, false);
+			}
+			bb.documentListeners = [];
+			
             // Retrieve our new screen
             var display = bb.screens[numItems-2],
                 newScreen = bb.loadScreen(display.url, display.id, true, display.guid, display.params, display);
@@ -676,13 +806,7 @@ bb = {
 				return 1024;
 			}
 		} else {
-			if (!window.orientation) {
-				return window.innerHeight;
-			} else if (window.orientation == 0 || window.orientation == 180) {
-				return 1280;
-			} else if (window.orientation == -90 || window.orientation == 90) {
-				return 768;
-			}
+			return window.innerHeight;
 		}
 	},
 	
@@ -698,12 +822,30 @@ bb = {
 				return 600;
 			}
 		} else {
+			return window.innerWidth;
+		}
+	},
+	
+	// returns 'landscape' or 'portrait'
+	getOrientation: function() {
+		if (bb.device.is720x720) return 'portrait';
+		// Orientation is backwards between playbook and BB10 smartphones
+		if (bb.device.isPlayBook) {
+			// Hack for ripple
 			if (!window.orientation) {
-				return window.innerWidth;
+				return (window.innerWidth > window.innerHeight) ? 'landscape' : 'portrait';
 			} else if (window.orientation == 0 || window.orientation == 180) {
-				return 768;
+				return 'landscape';
 			} else if (window.orientation == -90 || window.orientation == 90) {
-				return 1280;
+				return 'portrait';
+			}
+		} else {
+			if (window.orientation == undefined) {
+				return (window.innerWidth > window.innerHeight) ? 'landscape' : 'portrait';
+			} else if (window.orientation == 0 || window.orientation == 180) {
+				return 'portrait';
+			} else if (window.orientation == -90 || window.orientation == 90) {
+				return 'landscape';
 			}
 		}
 	},
@@ -723,6 +865,28 @@ bb = {
 		if (bb.scroller) {
 			bb.scroller.refresh();
 		}
+	},
+	
+	isScrolledIntoView : function(element) {
+		var offsetTop = 0,
+			target = element;
+		if (target.offsetParent) {
+			do {
+				offsetTop  += target.offsetTop;
+				if (target.scrollTop) {
+					offsetTop -= target.scrollTop;
+				}
+				// PlayBook calculation
+				if (bb.device.isPlayBook) {
+					if (target.scroller) {
+						offsetTop += target.scroller.y;
+					} else if (target.bbUIscrollWrapper) {
+						offsetTop += bb.scroller.y;
+					}
+				}
+			} while (target = target.offsetParent);
+		}
+		return offsetTop < bb.innerHeight();
 	}
 };
 
